@@ -1,0 +1,16 @@
+{"time":"2026-03-12T07:47:11","level":"INFO","msg":{"msg": "database ready", "path": "C:\\Users\\91891\\Downloads\\files (6)\\Backend\\data\\smartbuilding.db"}}
+{"time":"2026-03-12T07:47:11","level":"INFO","msg":{"msg": "starting uvicorn", "host": "0.0.0.0", "port": 5001}}
+{"time":"2026-03-12T07:47:11","level":"INFO","msg":{"msg": "starting waitress", "host": "0.0.0.0", "port": 5000, "threads": 8}}
+{"time":"2026-03-12T07:47:11","level":"INFO","msg":Serving on http://0.0.0.0:5000}
+{"time":"2026-03-12T07:47:11","level":"INFO","msg":{"msg": "database ready", "path": "C:\\Users\\91891\\Downloads\\files (6)\\Backend\\data\\smartbuilding.db"}}
+{"time":"2026-03-12T07:47:11","level":"INFO","msg":{"msg": "FastAPI startup complete", "db": "C:\\Users\\91891\\Downloads\\files (6)\\Backend\\data\\smartbuilding.db", "model": "C:\\Users\\91891\\Downloads\\files (6)\\Backend\\data\\model.joblib"}}
+{"time":"2026-03-12T07:51:27","level":"INFO","msg":{"msg": "model trained", "name": "Random Forest", "f1": 0.895, "time": 2.1}}
+{"time":"2026-03-12T07:56:13","level":"INFO","msg":{"msg": "model trained", "name": "Gradient Boosting", "f1": 0.895, "time": 285.5}}
+{"time":"2026-03-12T07:56:36","level":"INFO","msg":{"msg": "model trained", "name": "MLP Neural Network", "f1": 0.895, "time": 22.8}}
+{"time":"2026-03-12T07:56:36","level":"INFO","msg":{"msg": "model saved to disk", "path": "C:\\Users\\91891\\Downloads\\files (6)\\Backend\\data\\model.joblib", "size_kb": 3807}}
+{"time":"2026-03-12T07:56:36","level":"INFO","msg":{"msg": "pipeline complete", "best": "Random Forest", "f1": 0.895}}
+{"time":"2026-03-12T07:57:53","level":"INFO","msg":{"msg": "simulation complete", "run_id": "e8dea7c3", "faults": 88, "overrides": 23}}
+{"time":"2026-03-12T08:02:48","level":"INFO","msg":{"msg": "model trained", "name": "Random Forest", "f1": 0.895, "time": 6.0}}
+{"time":"2026-03-12T08:12:01","level":"INFO","msg":{"msg": "model trained", "name": "Gradient Boosting", "f1": 0.895, "time": 551.3}}
+{"time":"2026-03-12T08:35:37","level":"INFO","msg":{"msg": "simulation complete", "run_id": "7f2072b7", "faults": 100, "overrides": 18}}
+{"time":"2026-03-12T08:50:37","level":"INFO","msg":{"msg": "shutdown signal received", "signal": 2}}

@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NeuralGrid — Smart Building Intelligence</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #040810;
+  --surface: #080f1e;
+  --card: #0c1628;
+  --card2: #101d35;
+  --border: rgba(45,100,220,0.18);
+  --border2: rgba(45,100,220,0.35);
+  --accent: #1e6bff;
+  --accent2: #00d4ff;
+  --accent3: #7c3aed;
+  --green: #00e5a0;
+  --yellow: #fbbf24;
+  --red: #f43f5e;
+  --orange: #f97316;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --glow: 0 0 40px rgba(30,107,255,0.25);
+  --glow2: 0 0 20px rgba(0,212,255,0.15);
+  --font: 'Space Grotesk', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* NOISE TEXTURE OVERLAY */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ANIMATED GRID BACKGROUND */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(30,107,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30,107,255,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HEADER */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(4,8,16,0.85);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+}
+.header-inner {
+  max-width: 1600px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px; gap: 2rem;
+}
+.logo {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none;
+}
+.logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 0 20px rgba(30,107,255,0.5);
+  animation: logoGlow 3s ease-in-out infinite alternate;
+}
+@keyframes logoGlow {
+  from { box-shadow: 0 0 20px rgba(30,107,255,0.4); }
+  to { box-shadow: 0 0 35px rgba(0,212,255,0.6); }
+}
+.logo-text { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+.logo-text span { color: var(--accent2); }
+
+.nav { display: flex; gap: 0.25rem; }
+.nav-btn {
+  background: none; border: none; color: var(--text2); cursor: pointer;
+  padding: 6px 16px; border-radius: 6px; font-family: var(--font); font-size: 0.85rem;
+  transition: all 0.2s; white-space: nowrap;
+}
+.nav-btn:hover, .nav-btn.active { background: rgba(30,107,255,0.15); color: var(--accent2); }
+
+.status-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 6px 14px; font-size: 0.78rem;
+  color: var(--text2);
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--text3); transition: all 0.3s;
+}
+.status-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.5s infinite; }
+.status-dot.running { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); animation: pulse 0.8s infinite; }
+.status-dot.error { background: var(--red); }
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+/* MAIN LAYOUT */
+main {
+  position: relative; z-index: 1;
+  max-width: 1600px; margin: 0 auto;
+  padding: 2rem;
+}
+
+/* SECTIONS */
+.section { display: none; }
+.section.active { display: block; }
+
+/* HERO SECTION */
+.hero {
+  text-align: center; padding: 4rem 2rem 3rem;
+  position: relative;
+}
+.hero-glow {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 300px;
+  background: radial-gradient(ellipse, rgba(30,107,255,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 4vw, 3.5rem);
+  font-weight: 700; line-height: 1.1;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #fff 30%, var(--accent2) 60%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+}
+.hero p {
+  font-size: 1.1rem; color: var(--text2); max-width: 600px; margin: 0 auto 2.5rem;
+  line-height: 1.7;
+}
+.hero-tags {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 2.5rem;
+}
+.tag {
+  background: rgba(30,107,255,0.1); border: 1px solid rgba(30,107,255,0.3);
+  border-radius: 20px; padding: 4px 12px; font-size: 0.78rem;
+  color: var(--accent2); font-family: var(--mono);
+}
+
+/* CONTROL PANEL */
+.control-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+.panel-title {
+  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--accent2); margin-bottom: 1.5rem; font-family: var(--mono);
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title::before { content: ''; display: block; width: 20px; height: 1px; background: var(--accent2); }
+
+.controls-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 24px; border-radius: 10px; font-family: var(--font);
+  font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none;
+  transition: all 0.25s; text-transform: none; letter-spacing: 0;
+  position: relative; overflow: hidden;
+}
+.btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(rgba(255,255,255,0.05), transparent);
+  opacity: 0; transition: opacity 0.2s;
+}
+.btn:hover::after { opacity: 1; }
+.btn:active { transform: scale(0.98); }
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #1450cc);
+  color: white; box-shadow: 0 4px 20px rgba(30,107,255,0.35);
+}
+.btn-primary:hover { box-shadow: 0 6px 28px rgba(30,107,255,0.55); transform: translateY(-1px); }
+.btn-secondary {
+  background: var(--card2); border: 1px solid var(--border2);
+  color: var(--text);
+}
+.btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+.btn-success {
+  background: linear-gradient(135deg, #059669, #047857);
+  color: white; box-shadow: 0 4px 15px rgba(0,229,160,0.25);
+}
+.btn-success:hover { box-shadow: 0 6px 22px rgba(0,229,160,0.4); transform: translateY(-1px); }
+.btn-danger {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  color: white;
+}
+.btn-purple {
+  background: linear-gradient(135deg, var(--accent3), #5b21b6);
+  color: white; box-shadow: 0 4px 15px rgba(124,58,237,0.3);
+}
+.btn-purple:hover { box-shadow: 0 6px 22px rgba(124,58,237,0.5); transform: translateY(-1px); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+/* PROGRESS BAR */
+.progress-wrap { margin-top: 1.5rem; }
+.progress-label { font-size: 0.8rem; color: var(--text2); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.progress-bar {
+  height: 6px; background: rgba(255,255,255,0.06);
+  border-radius: 3px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+/* METRIC CARDS */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem; margin-bottom: 2rem;
+}
+.metric-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem;
+  transition: all 0.3s; position: relative; overflow: hidden;
+}
+.metric-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--card-accent, var(--accent));
+  opacity: 0.6;
+}
+.metric-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: var(--glow2); }
+.metric-card.green { --card-accent: var(--green); }
+.metric-card.yellow { --card-accent: var(--yellow); }
+.metric-card.red { --card-accent: var(--red); }
+.metric-card.purple { --card-accent: var(--accent3); }
+
+.metric-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 0.5rem; font-family: var(--mono); }
+.metric-value { font-size: 2.2rem; font-weight: 700; line-height: 1; margin-bottom: 0.25rem; }
+.metric-sub { font-size: 0.8rem; color: var(--text2); }
+.metric-icon { position: absolute; top: 1.2rem; right: 1.2rem; font-size: 1.5rem; opacity: 0.3; }
+
+/* CHARTS GRID */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 1.5rem; margin-bottom: 2rem;
+}
+.chart-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 1.5rem;
+  transition: all 0.3s;
+}
+.chart-card:hover { border-color: var(--border2); }
+.chart-card.full { grid-column: 1 / -1; }
+.chart-title {
+  font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text2); margin-bottom: 1.2rem; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.chart-title .badge {
+  background: rgba(30,107,255,0.15); color: var(--accent2);
+  border: 1px solid rgba(30,107,255,0.3);
+  border-radius: 4px; padding: 2px 8px; font-size: 0.7rem;
+}
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap.tall { height: 340px; }
+
+/* MODEL CARDS */
+.models-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+.model-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem;
+  transition: all 0.3s;
+}
+.model-card.best {
+  border-color: var(--accent2);
+  box-shadow: 0 0 30px rgba(0,212,255,0.1);
+}
+.model-card:hover { transform: translateY(-2px); }
+.model-name { font-weight: 600; margin-bottom: 0.25rem; display: flex; align-items: center; gap: 8px; }
+.model-badge { background: var(--accent2); color: #000; font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; }
+.metric-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.metric-row:last-child { border: none; }
+.metric-row .label { font-size: 0.8rem; color: var(--text2); font-family: var(--mono); }
+.metric-row .value { font-size: 0.9rem; font-weight: 600; font-family: var(--mono); }
+.bar-mini { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; margin-top: 2px; }
+.bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 1s ease; }
+
+/* LIVE FEED */
+.live-feed {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden; margin-bottom: 2rem;
+}
+.feed-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+  background: rgba(30,107,255,0.05);
+}
+.feed-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+.feed-live { width: 8px; height: 8px; border-radius: 50%; background: var(--red); animation: blink 1s infinite; }
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+.feed-scroll { max-height: 320px; overflow-y: auto; }
+.feed-scroll::-webkit-scrollbar { width: 4px; }
+.feed-scroll::-webkit-scrollbar-track { background: transparent; }
+.feed-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.feed-row {
+  display: grid; grid-template-columns: 120px 140px 120px 100px 1fr 80px;
+  gap: 1rem; align-items: center;
+  padding: 10px 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-family: var(--mono); font-size: 0.75rem;
+  animation: fadeInRow 0.3s ease;
+  transition: background 0.15s;
+}
+.feed-row:hover { background: rgba(30,107,255,0.05); }
+@keyframes fadeInRow { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform: none; } }
+.feed-row .col-time { color: var(--text3); }
+.feed-row .col-fault { }
+.severity-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+}
+.sev-1 { background: rgba(251,191,36,0.15); color: var(--yellow); }
+.sev-2 { background: rgba(249,115,22,0.15); color: var(--orange); }
+.sev-3 { background: rgba(244,63,94,0.15); color: var(--red); }
+.sev-4, .sev-5 { background: rgba(244,63,94,0.25); color: var(--red); animation: pulse 1s infinite; }
+.success-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;
+}
+.success-pill.ok { background: rgba(0,229,160,0.15); color: var(--green); }
+.success-pill.fail { background: rgba(244,63,94,0.15); color: var(--red); }
+
+/* DATA TABLE */
+.table-wrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden; margin-bottom: 2rem;
+}
+.table-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+  gap: 1rem; flex-wrap: wrap;
+}
+.table-scroll { overflow-x: auto; }
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--mono); font-size: 0.74rem;
+}
+.data-table th {
+  text-align: left; padding: 10px 16px;
+  color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.68rem;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+  background: rgba(30,107,255,0.03);
+}
+.data-table td {
+  padding: 9px 16px; border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text2); white-space: nowrap;
+}
+.data-table tr:hover td { background: rgba(30,107,255,0.04); }
+.pagination {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 1rem;
+}
+.page-btn {
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text2); padding: 6px 12px; border-radius: 6px;
+  cursor: pointer; font-family: var(--mono); font-size: 0.8rem;
+  transition: all 0.2s;
+}
+.page-btn:hover, .page-btn.active { border-color: var(--accent); color: var(--accent2); }
+
+/* AI REPORT */
+.report-panel {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 2rem; margin-bottom: 2rem;
+}
+.lang-selector {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 1.5rem;
+}
+.lang-btn {
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text2); padding: 8px 16px; border-radius: 8px;
+  cursor: pointer; font-family: var(--font); font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.lang-btn:hover, .lang-btn.active { border-color: var(--accent); color: var(--accent2); background: rgba(30,107,255,0.1); }
+.report-content {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 2rem;
+  min-height: 400px;
+  line-height: 1.8;
+}
+.report-content h2 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--accent2); }
+.report-content h2:first-child { margin-top: 0; }
+.report-content p { color: var(--text2); margin-bottom: 0.75rem; }
+.report-content strong { color: var(--text); }
+.report-content ol, .report-content ul { color: var(--text2); padding-left: 1.5rem; }
+.report-content li { margin-bottom: 0.5rem; }
+.report-loading {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 300px; gap: 16px;
+}
+.spinner {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 3px solid rgba(30,107,255,0.1);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* PREDICT FORM */
+.predict-form {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 2rem; margin-bottom: 2rem;
+}
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.form-group label { display: block; font-size: 0.75rem; color: var(--text3); margin-bottom: 4px; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.05em; }
+.form-group input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; color: var(--text);
+  font-family: var(--mono); font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.form-group input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(30,107,255,0.1); }
+.predict-result {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.5rem;
+  display: none;
+}
+.predict-result.show { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform:none; } }
+.result-fault { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; }
+.result-conf { color: var(--text2); font-family: var(--mono); }
+.conf-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+.conf-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--green), var(--accent2)); transition: width 0.6s ease; }
+
+/* TOAST */
+.toast-container { position: fixed; bottom: 2rem; right: 2rem; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 18px;
+  max-width: 360px; font-size: 0.85rem;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  animation: slideIn 0.3s ease;
+  display: flex; align-items: center; gap: 10px;
+}
+@keyframes slideIn { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform:none; } }
+.toast.success { border-color: rgba(0,229,160,0.4); }
+.toast.error { border-color: rgba(244,63,94,0.4); }
+.toast.info { border-color: rgba(30,107,255,0.4); }
+
+/* SELECT */
+select {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 12px; border-radius: 8px;
+  font-family: var(--font); font-size: 0.85rem; cursor: pointer;
+}
+select:focus { outline: none; border-color: var(--accent); }
+
+/* FAULT COLOR CODING */
+.fault-normal { color: var(--green); }
+.fault-hvac_failure { color: var(--red); }
+.fault-energy_overload { color: var(--orange); }
+.fault-lighting_fault { color: var(--yellow); }
+.fault-safety_alarm { color: var(--red); font-weight: 700; }
+.fault-sensor_failure { color: var(--text2); }
+.fault-parking_congestion { color: #818cf8; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .feed-row { grid-template-columns: 100px 120px 1fr; }
+  .feed-row .col-agent, .feed-row .col-ms, .feed-row .col-ml { display: none; }
+}
+
+/* SECTION ANIMATIONS */
+.section.active .metric-card { animation: cardIn 0.4s ease both; }
+.section.active .metric-card:nth-child(2) { animation-delay: 0.05s; }
+.section.active .metric-card:nth-child(3) { animation-delay: 0.1s; }
+.section.active .metric-card:nth-child(4) { animation-delay: 0.15s; }
+.section.active .metric-card:nth-child(5) { animation-delay: 0.2s; }
+@keyframes cardIn { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a class="logo" href="#" onclick="showSection('overview')">
+      <div class="logo-icon">⚡</div>
+      <span class="logo-text">Neural<span>Grid</span></span>
+    </a>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+      <button class="nav-btn" onclick="showSection('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="showSection('models')">ML Models</button>
+      <button class="nav-btn" onclick="showSection('live')">Live Feed</button>
+      <button class="nav-btn" onclick="showSection('data')">Dataset</button>
+      <button class="nav-btn" onclick="showSection('predict')">Predict</button>
+      <button class="nav-btn" onclick="showSection('report')">AI Report</button>
+    </nav>
+    <div class="status-badge">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Initializing...</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- OVERVIEW SECTION -->
+<section class="section active" id="section-overview">
+  <div class="hero">
+    <div class="hero-glow"></div>
+    <h1>Decentralized Multi-Agent<br>Self-Healing Smart Building</h1>
+    <p>Research-grade AI fault detection, autonomous agent negotiation, and predictive intelligence for next-generation building management systems.</p>
+    <div class="hero-tags">
+      <span class="tag">Multi-Agent Negotiation</span>
+      <span class="tag">Random Forest · Gradient Boosting · MLP</span>
+      <span class="tag">32,000 Training Samples</span>
+      <span class="tag">Real-time Fault Recovery</span>
+      <span class="tag">AES-256 Data Security</span>
+      <span class="tag">Multilingual AI Reports</span>
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <div class="panel-title">System Pipeline Control</div>
+    <div class="controls-grid">
+      <button class="btn btn-primary" id="btnInit" onclick="initPipeline()">
+        🧠 Initialize &amp; Train
+      </button>
+      <button class="btn btn-success" id="btnSim" onclick="startSimulation()" disabled>
+        ▶ Run Simulation
+      </button>
+      <button class="btn btn-secondary" onclick="showSection('dashboard')">
+        📊 View Dashboard
+      </button>
+      <button class="btn btn-purple" onclick="showSection('report')">
+        📋 AI Report
+      </button>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="progressMsg">Ready to initialize</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+  </div>
+
+  <!-- Quick stats -->
+  <div class="metrics-grid" id="quickMetrics">
+    <div class="metric-card">
+      <div class="metric-icon">📦</div>
+      <div class="metric-label">Dataset Size</div>
+      <div class="metric-value" id="qDataset">—</div>
+      <div class="metric-sub">training samples</div>
+    </div>
+    <div class="metric-card green">
+      <div class="metric-icon">🤖</div>
+      <div class="metric-label">Best Model F1</div>
+      <div class="metric-value" id="qF1">—</div>
+      <div class="metric-sub" id="qModelName">not trained</div>
+    </div>
+    <div class="metric-card yellow">
+      <div class="metric-icon">⚡</div>
+      <div class="metric-label">Total Faults</div>
+      <div class="metric-value" id="qFaults">—</div>
+      <div class="metric-sub">detected &amp; resolved</div>
+    </div>
+    <div class="metric-card red">
+      <div class="metric-icon">🔴</div>
+      <div class="metric-label">Avg Recovery</div>
+      <div class="metric-value" id="qRecovery">—</div>
+      <div class="metric-sub">milliseconds</div>
+    </div>
+    <div class="metric-card purple">
+      <div class="metric-icon">🛡</div>
+      <div class="metric-label">Safety Overrides</div>
+      <div class="metric-value" id="qOverrides">—</div>
+      <div class="metric-sub">critical interventions</div>
+    </div>
+  </div>
+
+  <!-- Architecture diagram -->
+  <div class="chart-card" style="margin-bottom:2rem;">
+    <div class="chart-title">System Architecture — Agent Communication Flow</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;padding:1rem 0;">
+      <div style="background:rgba(30,107,255,0.08);border:1px solid rgba(30,107,255,0.25);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-size:1.8rem">🌡</div>
+        <div style="font-size:0.85rem;font-weight:600;margin:6px 0">HVAC Agent</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Power monitoring<br>Thermal control</div>
+      </div>
+      <div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-size:1.8rem">⚡</div>
+        <div style="font-size:0.85rem;font-weight:600;margin:6px 0">Energy Agent</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Load management<br>Peak shaving</div>
+      </div>
+      <div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-size:1.8rem">💡</div>
+        <div style="font-size:0.85rem;font-weight:600;margin:6px 0">Lighting Agent</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Occupancy-aware<br>Intensity control</div>
+      </div>
+      <div style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.25);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-size:1.8rem">🚗</div>
+        <div style="font-size:0.85rem;font-weight:600;margin:6px 0">Parking Agent</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Congestion detection<br>Rerouting</div>
+      </div>
+      <div style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.25);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-size:1.8rem">🛡</div>
+        <div style="font-size:0.85rem;font-weight:600;margin:6px 0">Safety Agent</div>
+        <div style="font-size:0.72rem;color:var(--text3)">Priority override<br>Emergency protocol</div>
+      </div>
+      <div style="background:rgba(30,107,255,0.05);border:1px dashed rgba(30,107,255,0.3);border-radius:10px;padding:1rem;text-align:center;">
+        <div style="font-size:1.8rem">🧠</div>
+        <div style="font-size:0.85rem;font-weight:600;margin:6px 0">ML Detector</div>
+        <div style="font-size:0.72rem;color:var(--text3)">RF · GB · MLP<br>Ensemble prediction</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD SECTION -->
+<section class="section" id="section-dashboard">
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon">🔄</div>
+      <div class="metric-label">Simulation Runs</div>
+      <div class="metric-value" id="dRuns">—</div>
+      <div class="metric-sub">completed</div>
+    </div>
+    <div class="metric-card yellow">
+      <div class="metric-icon">⚠</div>
+      <div class="metric-label">Total Fault Events</div>
+      <div class="metric-value" id="dFaults">—</div>
+      <div class="metric-sub">detected</div>
+    </div>
+    <div class="metric-card green">
+      <div class="metric-icon">⚡</div>
+      <div class="metric-label">Avg Recovery Time</div>
+      <div class="metric-value" id="dRecovery">—</div>
+      <div class="metric-sub">milliseconds</div>
+    </div>
+    <div class="metric-card red">
+      <div class="metric-icon">🚨</div>
+      <div class="metric-label">Safety Overrides</div>
+      <div class="metric-value" id="dOverrides">—</div>
+      <div class="metric-sub">critical</div>
+    </div>
+    <div class="metric-card purple">
+      <div class="metric-icon">🎯</div>
+      <div class="metric-label">Best Model F1</div>
+      <div class="metric-value" id="dBestF1">—</div>
+      <div class="metric-sub">weighted average</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Fault Distribution <span class="badge">by type</span></div>
+      <div class="chart-wrap"><canvas id="faultDistChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">HVAC Power by Hour <span class="badge">24h profile</span></div>
+      <div class="chart-wrap"><canvas id="hourlyChart"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <div class="chart-title">Fault Events Timeline <span class="badge">by type per 10-step window</span></div>
+      <div class="chart-wrap tall"><canvas id="timelineChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Agent Recovery Distribution <span class="badge">count by agent</span></div>
+      <div class="chart-wrap"><canvas id="agentChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Occupancy vs Lighting <span class="badge">hourly correlation</span></div>
+      <div class="chart-wrap"><canvas id="occLightChart"></canvas></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:2rem;">
+    <button class="btn btn-secondary" onclick="loadDashboard()">🔄 Refresh</button>
+    <button class="btn btn-secondary" onclick="downloadRecoveryLog()">⬇ Download Recovery Log</button>
+  </div>
+</section>
+
+<!-- ML MODELS SECTION -->
+<section class="section" id="section-models">
+  <div class="panel-title" style="margin-bottom:1.5rem;">Machine Learning Performance</div>
+  <div class="models-grid" id="modelsGrid">
+    <div style="color:var(--text3);font-family:var(--mono);font-size:0.85rem;padding:2rem;">
+      Train models first via Overview → Initialize &amp; Train
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Model Comparison — F1 Score <span class="badge">weighted</span></div>
+      <div class="chart-wrap"><canvas id="modelCompChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Training Time Comparison <span class="badge">seconds</span></div>
+      <div class="chart-wrap"><canvas id="trainTimeChart"></canvas></div>
+    </div>
+    <div class="chart-card full">
+      <div class="chart-title">Confusion Matrix — Best Model <span class="badge" id="cmBadge">—</span></div>
+      <div class="chart-wrap tall"><canvas id="confMatChart"></canvas></div>
+    </div>
+  </div>
+</section>
+
+<!-- LIVE FEED SECTION -->
+<section class="section" id="section-live">
+  <div class="live-feed">
+    <div class="feed-header">
+      <div class="feed-title">
+        <div class="feed-live"></div>
+        Live Fault Recovery Stream
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="feedFilterSel" onchange="filterFeed()" style="font-size:0.75rem;padding:4px 8px;">
+          <option value="">All Faults</option>
+          <option value="hvac_failure">HVAC Failure</option>
+          <option value="energy_overload">Energy Overload</option>
+          <option value="lighting_fault">Lighting Fault</option>
+          <option value="safety_alarm">Safety Alarm</option>
+          <option value="sensor_failure">Sensor Failure</option>
+          <option value="parking_congestion">Parking</option>
+        </select>
+        <button class="btn btn-secondary" style="padding:4px 12px;font-size:0.75rem;" onclick="refreshFeed()">Refresh</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:120px 140px 120px 100px 1fr 80px;gap:1rem;padding:8px 1.5rem;border-bottom:1px solid var(--border);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);font-family:var(--mono);">
+      <span>Time</span><span>Fault Type</span><span>Detected By</span><span>Severity</span><span>Recovery Action</span><span>Status</span>
+    </div>
+    <div class="feed-scroll" id="feedScroll">
+      <div style="text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;">
+        No events yet — run a simulation first
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">Recovery Time Distribution <span class="badge">ms histogram</span></div>
+    <div class="chart-wrap"><canvas id="rtHistChart"></canvas></div>
+  </div>
+</section>
+
+<!-- DATASET SECTION -->
+<section class="section" id="section-data">
+  <div class="table-wrap">
+    <div class="table-header">
+      <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text2);">
+        Dataset Explorer
+        <span id="datasetCount" style="color:var(--text3);margin-left:8px;font-size:0.75rem;">— rows</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select id="faultFilterSel" onchange="loadDataPage(1)">
+          <option value="">All Faults</option>
+          <option value="normal">Normal</option>
+          <option value="hvac_failure">HVAC Failure</option>
+          <option value="energy_overload">Energy Overload</option>
+          <option value="lighting_fault">Lighting Fault</option>
+          <option value="safety_alarm">Safety Alarm</option>
+          <option value="sensor_failure">Sensor Failure</option>
+        </select>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:0.8rem;" onclick="downloadCSV()">⬇ CSV</button>
+        <button class="btn btn-secondary" style="padding:6px 14px;font-size:0.8rem;" onclick="downloadJSON()">⬇ JSON</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table" id="dataTable">
+        <thead>
+          <tr>
+            <th>#</th><th>Hour</th><th>Outdoor Temp</th><th>Occupancy</th>
+            <th>HVAC Power</th><th>Heating Load</th><th>Cooling Load</th>
+            <th>Lighting</th><th>Parking</th><th>Fault Label</th><th>Severity</th>
+          </tr>
+        </thead>
+        <tbody id="dataTableBody">
+          <tr><td colspan="11" style="text-align:center;color:var(--text3);padding:3rem;">Load dataset first</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:2rem;">
+    <div class="chart-title">Fault Label Distribution <span class="badge">dataset composition</span></div>
+    <div class="chart-wrap"><canvas id="dataDistChart"></canvas></div>
+  </div>
+</section>
+
+<!-- PREDICT SECTION -->
+<section class="section" id="section-predict">
+  <div class="predict-form">
+    <div class="panel-title">Real-Time Fault Prediction</div>
+    <div class="form-grid" id="predictForm">
+      <div class="form-group"><label>Hour (0-23)</label><input type="number" id="p_hour" value="12" min="0" max="23"></div>
+      <div class="form-group"><label>Outdoor Temp (°C)</label><input type="number" id="p_outdoor_temp" value="22" step="0.1"></div>
+      <div class="form-group"><label>Occupancy (0-1)</label><input type="number" id="p_occupancy" value="0.5" min="0" max="1" step="0.01"></div>
+      <div class="form-group"><label>HVAC Power (kW)</label><input type="number" id="p_hvac_power" value="30" step="0.1"></div>
+      <div class="form-group"><label>Heating Load (kW)</label><input type="number" id="p_heating_load" value="20" step="0.1"></div>
+      <div class="form-group"><label>Cooling Load (kW)</label><input type="number" id="p_cooling_load" value="18" step="0.1"></div>
+      <div class="form-group"><label>Lighting Intensity</label><input type="number" id="p_lighting_intensity" value="0.6" min="0" max="1.5" step="0.01"></div>
+      <div class="form-group"><label>Parking Occupancy</label><input type="number" id="p_parking_occupancy" value="0.5" min="0" max="1" step="0.01"></div>
+      <div class="form-group"><label>Relative Compactness</label><input type="number" id="p_relative_compactness" value="0.8" min="0" max="1" step="0.01"></div>
+      <div class="form-group"><label>Surface Area (m²)</label><input type="number" id="p_surface_area" value="600"></div>
+      <div class="form-group"><label>Wall Area (m²)</label><input type="number" id="p_wall_area" value="300"></div>
+      <div class="form-group"><label>Fault Severity (0-5)</label><input type="number" id="p_fault_severity" value="0" min="0" max="5"></div>
+    </div>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+      <button class="btn btn-primary" onclick="runPredict()">🔮 Predict Fault</button>
+      <button class="btn btn-secondary" onclick="loadRandomSample()">🎲 Random Sample</button>
+    </div>
+    <div class="predict-result" id="predictResult">
+      <div class="metric-label">Predicted Fault Type</div>
+      <div class="result-fault" id="resultFault">—</div>
+      <div class="result-conf">Confidence: <span id="resultConf">—</span></div>
+      <div class="conf-bar"><div class="conf-fill" id="resultConfBar" style="width:0%"></div></div>
+      <div style="margin-top:0.75rem;font-size:0.8rem;color:var(--text3);font-family:var(--mono);">Model: <span id="resultModel">—</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- AI REPORT SECTION -->
+<section class="section" id="section-report">
+  <div class="report-panel">
+    <div class="panel-title">AI Predictive Intelligence Report</div>
+    <div class="lang-selector">
+      <button class="lang-btn active" onclick="loadReport('en',this)">🇬🇧 English</button>
+      <button class="lang-btn" onclick="loadReport('hi',this)">🇮🇳 हिन्दी</button>
+      <button class="lang-btn" onclick="loadReport('or',this)">🪷 ଓଡ଼ିଆ</button>
+      <button class="lang-btn" onclick="loadReport('zh',this)">🇨🇳 中文</button>
+      <button class="lang-btn" onclick="loadReport('de',this)">🇩🇪 Deutsch</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap;">
+      <button class="btn btn-purple" onclick="loadReport(currentLang,null)">🔄 Regenerate Report</button>
+      <button class="btn btn-secondary" onclick="downloadReport()">⬇ Download Report</button>
+    </div>
+    <div class="report-content" id="reportContent">
+      <div class="report-loading">
+        <div style="font-size:0.9rem;color:var(--text3)">Select a language and generate your AI report</div>
+      </div>
+    </div>
+    <div id="reportMeta" style="margin-top:1rem;font-size:0.75rem;color:var(--text3);font-family:var(--mono);"></div>
+  </div>
+</section>
+
+</main>
+
+<!-- TOASTS -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ─── CHART REGISTRY ──────────────────────────────────────────────────────────
+const CHARTS = {};
+function destroyChart(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
+
+// ─── NAVIGATION ───────────────────────────────────────────────────────────────
+let currentSection = 'overview';
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-'+name).classList.add('active');
+  const btns = document.querySelectorAll('.nav-btn');
+  const labels = ['overview','dashboard','models','live','data','predict','report'];
+  if (labels.includes(name)) btns[labels.indexOf(name)].classList.add('active');
+  currentSection = name;
+  if (name === 'dashboard') loadDashboard();
+  else if (name === 'models') loadModels();
+  else if (name === 'live') { refreshFeed(); loadRTHist(); }
+  else if (name === 'data') { loadDataPage(1); loadDataDist(); }
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+function toast(msg, type='info', icon='') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `${icon||{info:'ℹ',success:'✓',error:'✗'}[type]} <span>${msg}</span>`;
+  document.getElementById('toastContainer').prepend(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── STATUS POLLING ───────────────────────────────────────────────────────────
+let statusInterval;
+async function pollStatus() {
+  try {
+    const d = await fetch('/api/status').then(r=>r.json());
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    
+    // Update progress
+    document.getElementById('progressFill').style.width = d.progress + '%';
+    document.getElementById('progressPct').textContent = d.progress + '%';
+    document.getElementById('progressMsg').textContent = d.status_msg;
+
+    if (d.training || d.simulating) {
+      dot.className = 'status-dot running';
+      txt.textContent = d.simulating ? 'Simulating...' : 'Training...';
+    } else if (d.model_trained) {
+      dot.className = 'status-dot active';
+      txt.textContent = 'Model Ready';
+      document.getElementById('btnSim').disabled = false;
+    } else {
+      dot.className = 'status-dot';
+      txt.textContent = 'Not initialized';
+    }
+
+    // Quick metrics
+    if (d.dataset_size > 0) document.getElementById('qDataset').textContent = d.dataset_size.toLocaleString();
+  } catch(e) {
+    document.getElementById('statusDot').className = 'status-dot error';
+    document.getElementById('statusText').textContent = 'Server offline';
+  }
+}
+
+// ─── PIPELINE ─────────────────────────────────────────────────────────────────
+async function initPipeline() {
+  const btn = document.getElementById('btnInit');
+  btn.disabled = true; btn.textContent = '⏳ Initializing...';
+  try {
+    const r = await fetch('/api/pipeline/init', {method:'POST'}).then(r=>r.json());
+    if (r.error) { toast(r.error, 'error'); }
+    else { toast('Pipeline started — training 3 ML models on 32K samples', 'success', '🧠'); }
+  } catch(e) { toast('Server error', 'error'); }
+  setTimeout(() => { btn.disabled = false; btn.textContent = '🧠 Initialize & Train'; }, 3000);
+}
+
+async function startSimulation() {
+  const btn = document.getElementById('btnSim');
+  btn.disabled = true; btn.textContent = '⏳ Running...';
+  try {
+    const r = await fetch('/api/pipeline/simulate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({steps:500})
+    }).then(r=>r.json());
+    if (r.error) toast(r.error, 'error');
+    else toast('Simulation running — 500 timesteps with multi-agent negotiation', 'success', '▶');
+  } catch(e) { toast('Server error', 'error'); }
+  setTimeout(() => { btn.disabled = false; btn.textContent = '▶ Run Simulation'; }, 5000);
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+const COLORS = {
+  normal: '#00e5a0', hvac_failure: '#f43f5e', energy_overload: '#f97316',
+  lighting_fault: '#fbbf24', safety_alarm: '#ef4444', sensor_failure: '#94a3b8',
+  parking_congestion: '#818cf8', none: '#64748b'
+};
+const PALETTE = ['#1e6bff','#00d4ff','#00e5a0','#fbbf24','#f43f5e','#7c3aed','#f97316','#06b6d4'];
+
+async function loadDashboard() {
+  try {
+    const d = await fetch('/api/dashboard').then(r=>r.json());
+    document.getElementById('dRuns').textContent = d.total_runs;
+    document.getElementById('dFaults').textContent = d.total_faults.toLocaleString();
+    document.getElementById('dRecovery').textContent = d.avg_recovery_ms + ' ms';
+    document.getElementById('dOverrides').textContent = d.safety_overrides;
+    document.getElementById('dBestF1').textContent = d.best_f1 || '—';
+    // Update quick metrics too
+    document.getElementById('qFaults').textContent = d.total_faults.toLocaleString();
+    document.getElementById('qRecovery').textContent = d.avg_recovery_ms + ' ms';
+    document.getElementById('qOverrides').textContent = d.safety_overrides;
+
+    // Fault distribution pie
+    if (d.fault_breakdown.length > 0) {
+      destroyChart('faultDist');
+      CHARTS['faultDist'] = new Chart(document.getElementById('faultDistChart'), {
+        type: 'doughnut',
+        data: {
+          labels: d.fault_breakdown.map(f=>f.fault_type),
+          datasets: [{
+            data: d.fault_breakdown.map(f=>f.cnt),
+            backgroundColor: d.fault_breakdown.map(f=>COLORS[f.fault_type]||'#64748b'),
+            borderWidth: 2, borderColor: '#040810',
+            hoverOffset: 12
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          plugins: {
+            legend: { position:'right', labels:{color:'#94a3b8',font:{size:11},padding:12}},
+            tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed} events` }}
+          }
+        }
+      });
+    }
+
+    // Hourly HVAC
+    const hd = await fetch('/api/analytics/hourly_pattern').then(r=>r.json());
+    if (hd.length > 0) {
+      destroyChart('hourly');
+      CHARTS['hourly'] = new Chart(document.getElementById('hourlyChart'), {
+        type: 'line',
+        data: {
+          labels: hd.map(h=>h.hour+':00'),
+          datasets: [{
+            label: 'Avg HVAC Power (kW)',
+            data: hd.map(h=>+h.avg_hvac.toFixed(2)),
+            borderColor: '#1e6bff', backgroundColor: 'rgba(30,107,255,0.1)',
+            fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 6,
+            pointBackgroundColor: '#1e6bff'
+          },{
+            label: 'Avg Occupancy',
+            data: hd.map(h=>+(h.avg_occ*50).toFixed(2)),
+            borderColor: '#00e5a0', backgroundColor: 'rgba(0,229,160,0.05)',
+            fill: true, tension: 0.4, pointRadius: 3, yAxisID: 'y2',
+            borderDash: [4,2]
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          scales: {
+            x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b',maxRotation:45} },
+            y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b'}, position:'left' },
+            y2: { display:false }
+          },
+          plugins: { legend:{labels:{color:'#94a3b8',font:{size:11}}} }
+        }
+      });
+    }
+
+    // Occ vs Light scatter
+    if (hd.length > 0) {
+      destroyChart('occLight');
+      CHARTS['occLight'] = new Chart(document.getElementById('occLightChart'), {
+        type: 'bar',
+        data: {
+          labels: hd.map(h=>h.hour+':00'),
+          datasets: [{
+            label: 'Occupancy (%)',
+            data: hd.map(h=>+(h.avg_occ*100).toFixed(1)),
+            backgroundColor: 'rgba(0,212,255,0.6)',
+            borderRadius: 3
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          scales: {
+            x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b',maxRotation:45} },
+            y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b',callback:v=>v+'%'} }
+          },
+          plugins:{legend:{labels:{color:'#94a3b8'}}}
+        }
+      });
+    }
+
+    // Timeline
+    loadTimeline();
+    // Agent chart
+    loadAgentChart();
+
+  } catch(e) { toast('Failed to load dashboard', 'error'); }
+}
+
+async function loadTimeline() {
+  try {
+    const d = await fetch('/api/analytics/fault_timeline').then(r=>r.json());
+    if (!d.labels || d.labels.length === 0) return;
+    destroyChart('timeline');
+    const datasets = Object.entries(d.series).map(([ft,vals],i) => ({
+      label: ft,
+      data: vals,
+      backgroundColor: (COLORS[ft]||PALETTE[i%PALETTE.length])+'99',
+      borderColor: COLORS[ft]||PALETTE[i%PALETTE.length],
+      borderWidth: 1, borderRadius: 3
+    }));
+    CHARTS['timeline'] = new Chart(document.getElementById('timelineChart'), {
+      type: 'bar',
+      data: { labels: d.labels.map(l=>'Step '+l), datasets },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x: { stacked:true, grid:{color:'rgba(255,255,255,0.03)'}, ticks:{color:'#64748b'} },
+          y: { stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b'} }
+        },
+        plugins: { legend:{labels:{color:'#94a3b8',font:{size:10}}} }
+      }
+    });
+  } catch(e) {}
+}
+
+async function loadAgentChart() {
+  try {
+    const d = await fetch('/api/analytics/recovery_dist').then(r=>r.json());
+    if (!d.agents || d.agents.length === 0) return;
+    destroyChart('agent');
+    CHARTS['agent'] = new Chart(document.getElementById('agentChart'), {
+      type: 'bar',
+      data: {
+        labels: d.agents,
+        datasets: [{
+          label: 'Recovery Count',
+          data: d.counts,
+          backgroundColor: PALETTE.slice(0,d.agents.length).map(c=>c+'cc'),
+          borderColor: PALETTE.slice(0,d.agents.length),
+          borderWidth: 2, borderRadius: 6
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false, indexAxis:'y',
+        scales: {
+          x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b'} },
+          y: { grid:{display:false}, ticks:{color:'#94a3b8'} }
+        },
+        plugins:{legend:{display:false}}
+      }
+    });
+  } catch(e) {}
+}
+
+// ─── ML MODELS ────────────────────────────────────────────────────────────────
+async function loadModels() {
+  try {
+    const d = await fetch('/api/ml/results').then(r=>r.json());
+    if (d.error) return;
+    
+    // Update quick metric
+    const bestRes = Object.values(d.results).find(r=>r.is_best);
+    if (bestRes) {
+      document.getElementById('qF1').textContent = bestRes.f1_score;
+      document.getElementById('qModelName').textContent = d.best_model;
+    }
+
+    // Model cards
+    const grid = document.getElementById('modelsGrid');
+    grid.innerHTML = '';
+    for (const [name, r] of Object.entries(d.results)) {
+      const card = document.createElement('div');
+      card.className = 'model-card' + (r.is_best?' best':'');
+      card.innerHTML = `
+        <div class="model-name">${name} ${r.is_best?'<span class="model-badge">Best</span>':''}</div>
+        <div style="color:var(--text3);font-size:0.75rem;margin-bottom:1rem;font-family:var(--mono)">
+          Train time: ${r.train_time_sec}s
+        </div>
+        ${['accuracy','precision','recall','f1_score'].map(m=>`
+          <div class="metric-row">
+            <span class="label">${m}</span>
+            <div>
+              <span class="value">${(r[m]*100).toFixed(2)}%</span>
+              <div class="bar-mini"><div class="bar-fill" style="width:${r[m]*100}%"></div></div>
+            </div>
+          </div>
+        `).join('')}
+      `;
+      grid.appendChild(card);
+    }
+
+    // Model comparison chart
+    const names = Object.keys(d.results);
+    const metrics = ['accuracy','precision','recall','f1_score'];
+    destroyChart('modelComp');
+    CHARTS['modelComp'] = new Chart(document.getElementById('modelCompChart'), {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: metrics.map((m,i) => ({
+          label: m,
+          data: names.map(n => d.results[n][m]),
+          backgroundColor: PALETTE[i]+'cc',
+          borderColor: PALETTE[i],
+          borderWidth: 2, borderRadius: 4
+        }))
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#94a3b8'} },
+          y: { min:0.75, max:0.95, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b',callback:v=>(v*100).toFixed(0)+'%'} }
+        },
+        plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}}
+      }
+    });
+
+    // Train time
+    destroyChart('trainTime');
+    CHARTS['trainTime'] = new Chart(document.getElementById('trainTimeChart'), {
+      type: 'bar',
+      data: {
+        labels: names,
+        datasets: [{
+          label: 'Train Time (s)',
+          data: names.map(n=>d.results[n].train_time_sec),
+          backgroundColor: names.map((_,i)=>PALETTE[i]+'cc'),
+          borderColor: names.map((_,i)=>PALETTE[i]),
+          borderWidth: 2, borderRadius: 6
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x: { grid:{display:false}, ticks:{color:'#94a3b8'} },
+          y: { grid:{color:'rgba(255,255,255,0.04)'}, ticks:{color:'#64748b'} }
+        },
+        plugins:{legend:{display:false}}
+      }
+    });
+
+    // Confusion matrix heatmap for best model
+    const bestCM = d.results[d.best_model]?.confusion_matrix;
+    if (bestCM && bestCM.length > 0) {
+      document.getElementById('cmBadge').textContent = d.best_model;
+      const labels = d.classes || [];
+      const flat = [];
+      const cmLabels = [];
+      bestCM.forEach((row,i) => row.forEach((val,j) => {
+        flat.push({x:j,y:i,v:val});
+        cmLabels.push(labels[i]||i);
+      }));
+      const maxVal = Math.max(...flat.map(f=>f.v));
+      destroyChart('confMat');
+      CHARTS['confMat'] = new Chart(document.getElementById('confMatChart'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            data: flat.map(f=>({x:f.x, y:f.y, v:f.v})),
+            backgroundColor: flat.map(f=>`rgba(30,107,255,${0.1+0.85*(f.v/maxVal)})`),
+            pointRadius: flat.map(() => 28), pointHoverRadius: 32
+          }]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false,
+          scales: {
+            x: { min:-0.5, max:labels.length-0.5, ticks:{callback:v=>labels[v]||v, color:'#64748b', font:{size:9}}, grid:{color:'rgba(255,255,255,0.04)'} },
+            y: { min:-0.5, max:labels.length-0.5, reverse:true, ticks:{callback:v=>labels[v]||v, color:'#64748b', font:{size:9}}, grid:{color:'rgba(255,255,255,0.04)'} }
+          },
+          plugins: {
+            legend:{display:false},
+            tooltip:{callbacks:{label:c=>`${labels[c.raw.y]} → ${labels[c.raw.x]}: ${c.raw.v}`}}
+          }
+        }
+      });
+    }
+
+  } catch(e) { console.error(e); }
+}
+
+// ─── LIVE FEED ────────────────────────────────────────────────────────────────
+let feedData = [];
+let feedFilter = '';
+function filterFeed() {
+  feedFilter = document.getElementById('feedFilterSel').value;
+  renderFeed();
+}
+async function refreshFeed() {
+  try {
+    const d = await fetch('/api/live/events').then(r=>r.json());
+    feedData = d; renderFeed();
+  } catch(e) {}
+}
+function renderFeed() {
+  const scroll = document.getElementById('feedScroll');
+  const data = feedFilter ? feedData.filter(e=>e.fault_type===feedFilter) : feedData;
+  if (data.length === 0) {
+    scroll.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;">No events' + (feedFilter?' for this fault type':'') + '</div>';
+    return;
+  }
+  scroll.innerHTML = [...data].reverse().map(e => `
+    <div class="feed-row">
+      <span class="col-time">${e.timestamp ? e.timestamp.slice(11,19) : '--:--:--'}</span>
+      <span class="col-fault fault-${e.fault_type}">${e.fault_type}</span>
+      <span style="color:var(--text2)">${e.detected_by}</span>
+      <span class="col-sev"><span class="severity-badge sev-${e.fault_severity}">SEV ${e.fault_severity}</span></span>
+      <span style="color:var(--text3);overflow:hidden;text-overflow:ellipsis">${e.recovery_action}</span>
+      <span><span class="success-pill ${e.success?'ok':'fail'}">${e.success?'✓ OK':'✗ FAIL'}</span></span>
+    </div>
+  `).join('');
+}
+
+async function loadRTHist() {
+  try {
+    const runId = await fetch('/api/status').then(r=>r.json()).then(d=>d.last_run_id);
+    if (!runId) return;
+    const d = await fetch(`/api/runs/${runId}/events`).then(r=>r.json());
+    if (!d.length) return;
+    const times = d.map(e=>e.recovery_time_ms);
+    const min = Math.min(...times), max = Math.max(...times);
+    const bins = 20;
+    const step = (max-min)/bins;
+    const counts = Array(bins).fill(0);
+    times.forEach(t => { const i = Math.min(Math.floor((t-min)/step), bins-1); counts[i]++; });
+    const labels = Array(bins).fill(0).map((_,i)=>Math.round(min+i*step)+'ms');
+    destroyChart('rtHist');
+    CHARTS['rtHist'] = new Chart(document.getElementById('rtHistChart'), {
+      type: 'bar',
+      data: { labels, datasets: [{
+        label: 'Event Count',
+        data: counts,
+        backgroundColor: 'rgba(30,107,255,0.6)', borderColor: '#1e6bff', borderWidth: 1, borderRadius: 3
+      }]},
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#64748b',maxRotation:45}},
+          y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b'}}
+        },
+        plugins:{legend:{labels:{color:'#94a3b8'}}}
+      }
+    });
+  } catch(e) {}
+}
+
+// ─── DATA TABLE ───────────────────────────────────────────────────────────────
+let currentPage = 1;
+async function loadDataPage(page) {
+  currentPage = page;
+  const fault = document.getElementById('faultFilterSel').value;
+  const url = `/api/dataset/page?page=${page}&per_page=50${fault?'&fault='+fault:''}`;
+  try {
+    const d = await fetch(url).then(r=>r.json());
+    if (d.error) { toast(d.error,'error'); return; }
+    document.getElementById('datasetCount').textContent = d.total.toLocaleString() + ' rows';
+    const body = document.getElementById('dataTableBody');
+    body.innerHTML = d.rows.map(r=>`
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.hour}</td>
+        <td>${r.outdoor_temp?.toFixed(1)||'—'}</td>
+        <td>${r.occupancy?.toFixed(3)||'—'}</td>
+        <td>${r.hvac_power?.toFixed(1)||'—'}</td>
+        <td>${r.heating_load?.toFixed(1)||'—'}</td>
+        <td>${r.cooling_load?.toFixed(1)||'—'}</td>
+        <td>${r.lighting_intensity?.toFixed(3)||'—'}</td>
+        <td>${r.parking_occupancy?.toFixed(3)||'—'}</td>
+        <td><span class="fault-${r.fault_label}">${r.fault_label}</span></td>
+        <td>${r.fault_severity}</td>
+      </tr>
+    `).join('');
+
+    // Pagination
+    const pages = Math.ceil(d.total / d.per_page);
+    const pag = document.getElementById('pagination');
+    let html = '';
+    if (page > 1) html += `<button class="page-btn" onclick="loadDataPage(${page-1})">‹ Prev</button>`;
+    const start = Math.max(1,page-2), end = Math.min(pages,page+2);
+    for (let p=start;p<=end;p++) html += `<button class="page-btn${p===page?' active':''}" onclick="loadDataPage(${p})">${p}</button>`;
+    if (page < pages) html += `<button class="page-btn" onclick="loadDataPage(${page+1})">Next ›</button>`;
+    pag.innerHTML = html;
+  } catch(e) { toast('Failed to load data','error'); }
+}
+
+async function loadDataDist() {
+  try {
+    const d = await fetch('/api/dataset/stats').then(r=>r.json());
+    if (d.error || !d.fault_distribution) return;
+    destroyChart('dataDist');
+    CHARTS['dataDist'] = new Chart(document.getElementById('dataDistChart'), {
+      type: 'bar',
+      data: {
+        labels: d.fault_distribution.map(f=>f.fault_label),
+        datasets: [{
+          label: 'Count',
+          data: d.fault_distribution.map(f=>f.cnt),
+          backgroundColor: d.fault_distribution.map(f=>COLORS[f.fault_label]||'#64748b'),
+          borderRadius: 6, borderWidth: 0
+        }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x:{grid:{display:false},ticks:{color:'#94a3b8'}},
+          y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#64748b'}}
+        },
+        plugins:{legend:{display:false}}
+      }
+    });
+  } catch(e) {}
+}
+
+// ─── DOWNLOADS ────────────────────────────────────────────────────────────────
+function downloadCSV() { window.open('/api/download/dataset?format=csv','_blank'); toast('Downloading CSV...','success','⬇'); }
+function downloadJSON() { window.open('/api/download/dataset?format=json','_blank'); toast('Downloading JSON...','success','⬇'); }
+async function downloadRecoveryLog() {
+  const status = await fetch('/api/status').then(r=>r.json());
+  if (!status.last_run_id) { toast('No simulation run found','error'); return; }
+  window.open(`/api/download/recovery_log?run_id=${status.last_run_id}`,'_blank');
+  toast('Downloading recovery log...','success','⬇');
+}
+function downloadReport() {
+  const content = document.getElementById('reportContent').innerText;
+  const blob = new Blob([content], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ai_report_${currentLang}_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  toast('Report downloaded','success','⬇');
+}
+
+// ─── PREDICT ─────────────────────────────────────────────────────────────────
+const FAULT_ICONS = {normal:'✅',hvac_failure:'🔴',energy_overload:'⚡',lighting_fault:'💡',safety_alarm:'🚨',sensor_failure:'📡',parking_congestion:'🚗',unknown:'❓'};
+async function runPredict() {
+  const fields = ['hour','outdoor_temp','occupancy','hvac_power','heating_load','cooling_load','lighting_intensity','parking_occupancy','relative_compactness','surface_area','wall_area','fault_severity'];
+  const body = {};
+  fields.forEach(f => { const el = document.getElementById('p_'+f); if(el) body[f] = parseFloat(el.value)||0; });
+  try {
+    const d = await fetch('/api/predict',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
+    if (d.error) { toast(d.error,'error'); return; }
+    const res = document.getElementById('predictResult');
+    res.classList.add('show');
+    const icon = FAULT_ICONS[d.fault_type]||'❓';
+    document.getElementById('resultFault').innerHTML = `${icon} <span class="fault-${d.fault_type}">${d.fault_type}</span>`;
+    document.getElementById('resultConf').textContent = (d.confidence*100).toFixed(2)+'%';
+    document.getElementById('resultConfBar').style.width = (d.confidence*100)+'%';
+    document.getElementById('resultModel').textContent = d.model_used;
+  } catch(e) { toast('Prediction failed','error'); }
+}
+
+async function loadRandomSample() {
+  try {
+    const d = await fetch('/api/dataset/page?page='+Math.floor(Math.random()*100+1)+'&per_page=1').then(r=>r.json());
+    if (d.rows && d.rows[0]) {
+      const r = d.rows[0];
+      const map = {hour:'p_hour',outdoor_temp:'p_outdoor_temp',occupancy:'p_occupancy',hvac_power:'p_hvac_power',heating_load:'p_heating_load',cooling_load:'p_cooling_load',lighting_intensity:'p_lighting_intensity',parking_occupancy:'p_parking_occupancy',relative_compactness:'p_relative_compactness',surface_area:'p_surface_area',wall_area:'p_wall_area',fault_severity:'p_fault_severity'};
+      for (const [k,id] of Object.entries(map)) {
+        const el = document.getElementById(id);
+        if (el && r[k]!=null) el.value = typeof r[k]==='number' ? r[k].toFixed(3) : r[k];
+      }
+      toast('Random sample loaded','success','🎲');
+    }
+  } catch(e) { toast('Load dataset first','error'); }
+}
+
+// ─── AI REPORT ────────────────────────────────────────────────────────────────
+let currentLang = 'en';
+let lastReport = null;
+async function loadReport(lang, btn) {
+  currentLang = lang;
+  if (btn) {
+    document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  const content = document.getElementById('reportContent');
+  content.innerHTML = '<div class="report-loading"><div class="spinner"></div><div style="color:var(--text3);font-size:0.85rem">Generating AI report...</div></div>';
+  try {
+    const d = await fetch('/api/ai_report',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({language:lang})
+    }).then(r=>r.json());
+    lastReport = d;
+    content.innerHTML = marked.parse(d.content);
+    document.getElementById('reportMeta').textContent = 
+      `Generated: ${new Date(d.generated_at).toLocaleString()} | Language: ${d.language_name} | Model Runs: ${d.metrics_snapshot?.total_runs||0}`;
+  } catch(e) {
+    content.innerHTML = '<div style="color:var(--red);padding:2rem">Failed to generate report. Initialize pipeline first.</div>';
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+statusInterval = setInterval(pollStatus, 1500);
+pollStatus();
+</script>
+</body>
+</html>
